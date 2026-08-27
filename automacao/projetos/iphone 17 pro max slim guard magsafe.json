@@ -1,0 +1,131 @@
+{
+ "blend": "C:\\Users\\Notebook\\Documents\\Automação Mockups\\studio.blend",
+ "blender": "C:\\Program Files\\Blender Foundation\\Blender 4.5\\blender.exe",
+ "raiz": "C:\\Users\\Notebook\\Documents\\Automação Mockups\\teste",
+ "template": "{aparelho}/{capinha}/{camera}/{numero}.png",
+ "tokens": {
+  "aparelho": "IPHONE 17 PRO MAX",
+  "linha": ""
+ },
+ "qualidade": {
+  "samples": 256,
+  "resolucao": 1000,
+  "gpu": true
+ },
+ "preview": {
+  "samples": 16,
+  "resolucao": 250,
+  "gpu": true
+ },
+ "grupos": {
+  "capinha": {
+   "pecas": [
+    "corpo",
+    "frame",
+    "logo",
+    "botoes"
+   ],
+   "variacoes": [
+    {
+     "nome": "SLIM GUARD PRO LARANJA",
+     "materiais": [
+      "case LARANJA",
+      "frame LARANJA",
+      "magsafe LARANJA",
+      "laranja botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO CLEAR",
+     "materiais": [
+      "case transparente",
+      "frame transparente",
+      "magsafe transparente",
+      "branco botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO ACAI",
+     "materiais": [
+      "case acai",
+      "frame acai",
+      "magsafe acai",
+      "acai botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO AZUL",
+     "materiais": [
+      "case azul",
+      "frame azul",
+      "magsafe azul",
+      "azul botao"
+     ]
+    }
+   ]
+  },
+  "corpo": {
+   "pecas": [
+    "CORPO",
+    "COSTAS"
+   ],
+   "variacoes": [
+    {
+     "nome": "branco",
+     "materiais": [
+      "branco 1",
+      "branco 2"
+     ],
+     "numero": "02"
+    },
+    {
+     "nome": "laranja",
+     "materiais": [
+      "laranja 1",
+      "laranja 2"
+     ],
+     "numero": "03"
+    },
+    {
+     "nome": "azul escuro",
+     "materiais": [
+      "azul escuro 1",
+      "azul escuro 2"
+     ],
+     "numero": "04"
+    }
+   ]
+  }
+ },
+ "cameras": [
+  {
+   "objeto": "Camera",
+   "rotulo": "POS 1",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.001",
+   "rotulo": "POS 2",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.002",
+   "rotulo": "POS 3",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.003",
+   "rotulo": "POS 4",
+   "ativa": true
+  }
+ ],
+ "mascara": {
+  "ativa": true,
+  "objetos": [
+   "mascara"
+  ],
+  "numero": "01",
+  "samples": 8
+ },
+ "numero_inicial": 2
+}

@@ -1,0 +1,20 @@
+# Arquivos do Blender: binários grandes (~21 MB cada) que mudam a cada
+# save. Versioná-los faria o repositório crescer alguns megabytes por
+# ajuste de material. Ficam fora de propósito.
+*.blend
+*.blend1
+
+# Saída de render
+/teste/
+/renders/
+/saida/
+
+# Fila temporária escrita a cada lote
+automacao/projetos/_*.json
+
+__pycache__/
+*.py[cod]
+
+Thumbs.db
+desktop.ini
+.DS_Store

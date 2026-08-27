@@ -1,0 +1,144 @@
+{
+ "blend": "C:\\Users\\Notebook\\Documents\\Automação Mockups\\slim guard pro - iphone 18 pro.blend",
+ "blender": "C:\\Program Files\\Blender Foundation\\Blender 4.5\\blender.exe",
+ "raiz": "C:\\Users\\Notebook\\Documents\\MOCKUPS\\SLIM GUARD",
+ "template": "{aparelho}/{capinha}/{camera}/{numero}.png",
+ "tokens": {
+  "aparelho": "IPHONE 17 PRO",
+  "linha": ""
+ },
+ "qualidade": {
+  "samples": 256,
+  "resolucao": 1000,
+  "gpu": true
+ },
+ "preview": {
+  "samples": 32,
+  "resolucao": 250,
+  "gpu": true
+ },
+ "grupos": {
+  "capinha": {
+   "pecas": [
+    "CORPO",
+    "FRAME",
+    "LOGO",
+    "MAGSAFE",
+    "BOTOES"
+   ],
+   "variacoes": [
+    {
+     "nome": "SLIM GUARD PRO CLEAR",
+     "materiais": [
+      "case transparente",
+      "frame transparente",
+      "logo transparente",
+      "magsafe transparente",
+      "branco botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO ACAI",
+     "materiais": [
+      "case acai",
+      "frame acai",
+      "magsafe acai.001",
+      "magsafe acai",
+      "acai botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO AZUL",
+     "materiais": [
+      "case azul",
+      "frame azul",
+      "magsafe azul.001",
+      "magsafe azul",
+      "azul botao"
+     ]
+    },
+    {
+     "nome": "SLIM GUARD PRO LARANJA",
+     "materiais": [
+      "case LARANJA",
+      "frame LARANJA",
+      "magsafe LARANJA.001",
+      "magsafe LARANJA",
+      "laranja botao"
+     ]
+    }
+   ]
+  },
+  "corpo": {
+   "pecas": [
+    "CORPO",
+    "COSTAS"
+   ],
+   "variacoes": [
+    {
+     "nome": "BRANCO",
+     "materiais": [
+      "branco 1",
+      "branco 2"
+     ],
+     "numero": "02"
+    },
+    {
+     "nome": "LARANJA",
+     "materiais": [
+      "laranja 1",
+      "laranja 2"
+     ],
+     "numero": "03"
+    },
+    {
+     "nome": "AZUL ESCURO",
+     "materiais": [
+      "azul escuro 1",
+      "azul escuro 2"
+     ],
+     "numero": "04"
+    },
+    {
+     "nome": "PRETO",
+     "materiais": [
+      "preto 1",
+      "preto 2"
+     ],
+     "numero": "05"
+    }
+   ]
+  }
+ },
+ "cameras": [
+  {
+   "objeto": "Camera",
+   "rotulo": "POS 1",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.001",
+   "rotulo": "POS 2",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.002",
+   "rotulo": "POS 3",
+   "ativa": true
+  },
+  {
+   "objeto": "Camera.003",
+   "rotulo": "POS 4",
+   "ativa": true
+  }
+ ],
+ "mascara": {
+  "ativa": true,
+  "objetos": [
+   "mascara"
+  ],
+  "numero": "01",
+  "samples": 8
+ },
+ "numero_inicial": 2
+}
