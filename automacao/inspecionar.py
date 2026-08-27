@@ -101,6 +101,46 @@ def cor_do_material(m):
     return None
 
 
+def dispositivos():
+    """Hardware de render disponivel, na mesma ordem de preferencia que o
+    render.py usa.
+
+    Isto NAO vem do .blend - a cena guarda apenas 'GPU' ou 'CPU'. Qual
+    placa e qual backend vem das preferencias do Blender e do hardware.
+    Como rodamos com --factory-startup, a escolha salva do usuario esta
+    zerada, mas a enumeracao do hardware continua funcionando: e assim
+    que o render.py descobre a placa.
+    """
+    saida = {"backend": None, "nome": None, "cpu": None, "lista": []}
+    try:
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+    except Exception:
+        return saida
+
+    for tipo in ("OPTIX", "CUDA", "HIP", "METAL", "ONEAPI"):
+        try:
+            prefs.compute_device_type = tipo
+        except Exception:
+            continue
+        try:
+            prefs.refresh_devices()
+        except Exception:
+            pass
+        achados = [d.name for d in prefs.devices if d.type == tipo]
+        for nome in achados:
+            saida["lista"].append({"tipo": tipo, "nome": nome})
+        if achados and saida["backend"] is None:
+            saida["backend"] = tipo
+            saida["nome"] = achados[0]
+
+    for d in prefs.devices:
+        if d.type == "CPU":
+            saida["cpu"] = d.name
+            break
+
+    return saida
+
+
 def coletar():
     sc = bpy.context.scene
 
@@ -128,6 +168,8 @@ def coletar():
         }
     except Exception:
         dados["cycles"] = None
+
+    dados["dispositivos"] = dispositivos()
 
     for o in sorted((o for o in bpy.data.objects if o.type == "CAMERA"), key=lambda x: x.name):
         dados["cameras"].append({

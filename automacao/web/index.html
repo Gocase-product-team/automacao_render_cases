@@ -13,6 +13,7 @@
   --ok:#0a7a3a; --ok-fundo:#e6f5ec;
   --erro:#c02626; --erro-fundo:#fdeaea;
   --aviso:#8a5a00;
+  --grafico:#f7f7f5; --gpu:#b03fc4; --vram:#2f7fe0; --cpu:#7a8290;
   --r:7px; --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
 }
 @media (prefers-color-scheme:dark){
@@ -24,6 +25,7 @@
     --ok:#4ac47e; --ok-fundo:#12291d;
     --erro:#f07171; --erro-fundo:#2c1717;
     --aviso:#d9a441;
+    --grafico:#14161a; --gpu:#d564e8; --vram:#5b9cf0; --cpu:#8a929e;
   }
 }
 *{box-sizing:border-box}
@@ -152,6 +154,22 @@ td.num input{font-family:var(--mono);text-align:center}
 .painelConta .n{font-size:15px;font-weight:600;color:var(--acento-texto)}
 .painelConta .sub{font-size:12.5px;color:var(--acento-texto);opacity:.85}
 .painelConta .dir{margin-left:auto;display:flex;gap:6px}
+/* ---------- monitor ---------- */
+.monitor{background:var(--painel);border:1px solid var(--borda);
+  border-radius:12px;padding:11px 13px 9px;margin-bottom:12px}
+.mcab{display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;margin-bottom:7px}
+.mtit{font-size:18px;font-weight:300;letter-spacing:-.015em;line-height:1}
+.mdisp{font-size:12.5px;color:var(--texto2);text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mCanvas{width:100%;height:104px;display:block;border-radius:4px}
+.mrod{display:flex;gap:15px;align-items:center;margin-top:7px;
+  font-size:11.5px;color:var(--texto2);font-family:var(--mono);flex-wrap:wrap}
+.mrod .chave{display:inline-flex;align-items:center;gap:5px}
+.mrod .tr{width:9px;height:3px;border-radius:2px;flex:none}
+.mrod b{font-weight:600}
+.mesc{margin-left:auto;color:var(--texto3)}
+
 progress{width:100%;height:6px;appearance:none;border:none;
   background:var(--painel2);border-radius:3px;overflow:hidden;display:block;margin-bottom:10px}
 progress::-webkit-progress-bar{background:var(--painel2)}
@@ -350,6 +368,24 @@ footer .ponto.busy{background:var(--acento);animation:pulsa 1s infinite}
         <svg class="i"><use href="#i-parar"/></svg>Parar</button>
       <button class="primario" id="btRender" onclick="renderizar()">
         <svg class="i"><use href="#i-play"/></svg>Renderizar</button>
+    </div>
+  </div>
+
+  <div class="monitor" id="monitor">
+    <div class="mcab">
+      <span class="mtit" id="mTitulo">GPU</span>
+      <span class="mdisp" id="mDisp">inspecione o .blend para detectar o dispositivo</span>
+    </div>
+    <canvas id="mCanvas"></canvas>
+    <div class="mrod">
+      <span class="chave"><i class="tr" style="background:var(--gpu)"></i>
+        uso <b id="mUtil">—</b></span>
+      <span class="chave" id="chaveVram" hidden><i class="tr" style="background:var(--vram)"></i>
+        vram <b id="mVram">—</b></span>
+      <span class="chave"><i class="tr" style="background:var(--cpu)"></i>
+        cpu <b id="mCpu">—</b></span>
+      <span id="mTemp"></span>
+      <span class="mesc">60 s</span>
     </div>
   </div>
 
@@ -781,6 +817,99 @@ function travar(rodando){
   ponto(rodando ? "busy" : (S.insp ? "on" : ""));
 }
 
+/* ---------------- monitor de dispositivo ---------------- */
+const AMOSTRAS = 60;                       // 60 pontos a 1 s = 60 s
+const MON = {principal:[], vram:[], cpu:[], fonte:null, temVram:false};
+
+function corVar(nome){
+  return getComputedStyle(document.body).getPropertyValue(nome).trim();
+}
+function empurrar(lista, valor){
+  lista.push(valor === null || valor === undefined ? null : valor);
+  while(lista.length > AMOSTRAS) lista.shift();
+}
+function serie(ctx, L, A, dados, cor, preenche){
+  const px = i => L * (i / (AMOSTRAS - 1));
+  const py = v => A - (Math.max(0, Math.min(100, v)) / 100) * (A - 2) - 1;
+  const off = AMOSTRAS - dados.length;
+  const pontos = dados.map((v,i)=>v===null?null:[px(off+i), py(v)]).filter(Boolean);
+  if(pontos.length < 2) return;
+
+  if(preenche){
+    ctx.beginPath();
+    ctx.moveTo(pontos[0][0], A);
+    pontos.forEach(([x,y])=>ctx.lineTo(x,y));
+    ctx.lineTo(pontos[pontos.length-1][0], A);
+    ctx.closePath();
+    ctx.globalAlpha = 0.20; ctx.fillStyle = cor; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.beginPath();
+  pontos.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = preenche ? 1.8 : 1.2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+function desenharMonitor(){
+  const c = $("#mCanvas");
+  if(!c.clientWidth) return;
+  const ctx = c.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const L = c.clientWidth, A = c.clientHeight;
+  if(c.width !== Math.round(L*dpr) || c.height !== Math.round(A*dpr)){
+    c.width = Math.round(L*dpr); c.height = Math.round(A*dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, L, A);
+
+  ctx.fillStyle = corVar('--grafico');
+  ctx.fillRect(0, 0, L, A);
+
+  ctx.strokeStyle = corVar('--borda');
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let i=1;i<10;i++){const x=Math.round(L*i/10)+.5; ctx.moveTo(x,0); ctx.lineTo(x,A);}
+  for(let i=1;i<6;i++){const y=Math.round(A*i/6)+.5; ctx.moveTo(0,y); ctx.lineTo(L,y);}
+  ctx.stroke();
+
+  if(MON.temVram) serie(ctx, L, A, MON.vram, corVar('--vram'), false);
+  serie(ctx, L, A, MON.cpu, corVar('--cpu'), false);
+  serie(ctx, L, A, MON.principal, corVar('--gpu'), true);
+}
+function aplicarMonitor(d){
+  MON.fonte = d.fonte;
+  const ehGpu = d.fonte === "nvidia";
+  $("#mTitulo").textContent = ehGpu ? "GPU" : "CPU";
+
+  if(ehGpu && d.nome) $("#mDisp").textContent = d.nome;
+  else if(d.backend) $("#mDisp").textContent =
+    `${d.backend} detectado · sem leitura de uso disponível · mostrando ${d.cpu_nome||"CPU"}`;
+  else $("#mDisp").textContent = d.cpu_nome || "CPU";
+
+  const principal = ehGpu ? d.gpu : d.cpu;
+  empurrar(MON.principal, principal);
+  empurrar(MON.cpu, d.cpu);
+
+  MON.temVram = ehGpu && d.vram_total ? true : false;
+  $("#chaveVram").hidden = !MON.temVram;
+  if(MON.temVram){
+    const pct = 100 * d.vram_usada / d.vram_total;
+    empurrar(MON.vram, pct);
+    $("#mVram").textContent =
+      `${(d.vram_usada/1024).toFixed(1)}/${(d.vram_total/1024).toFixed(1)} GB`;
+    $("#mVram").style.color = pct > 90 ? "var(--erro)" : "";
+  } else empurrar(MON.vram, null);
+
+  $("#mUtil").textContent = principal === null || principal === undefined
+    ? "—" : principal + "%";
+  $("#mCpu").textContent = d.cpu === null || d.cpu === undefined ? "—" : d.cpu + "%";
+  $("#mTemp").textContent = d.temp ? d.temp + " °C" : "";
+  desenharMonitor();
+}
+addEventListener("resize", ()=>desenharMonitor());
+desenharMonitor();
+
 /* ---------------- eventos do servidor ---------------- */
 const fonte = new EventSource("/api/eventos");
 fonte.onmessage = ev=>{
@@ -800,6 +929,8 @@ fonte.onmessage = ev=>{
     } else if(t.startsWith("FALHA") || t.startsWith("ERRO")) logar(t,"erro");
     else if(t.startsWith("INICIO")) aviso(t);
     else logar(t,"fraco");
+  } else if(tipo==="monitor"){
+    aplicarMonitor(dados);
   } else if(tipo==="erro"){
     logar(dados,"erro");
   } else if(tipo==="fim"){

@@ -31,6 +31,11 @@ PASTA_PROJETOS = os.path.join(AQUI, "projetos")
 # desliga. Evita processo pendurado quando a aba e fechada.
 SEGUNDOS_SEM_SINAL = 45
 
+# Carencia depois de um /api/sair. O navegador dispara 'pagehide' tambem
+# num F5 ou numa navegacao, entao sair nao pode ser definitivo: se a
+# pagina voltar dentro da carencia, o desligamento e cancelado.
+GRACA_SAIDA = 8
+
 TIPOS = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml",
          ".png": "image/png", ".ico": "image/x-icon"}
@@ -47,12 +52,21 @@ class Estado:
         self.ouvintes = []
         self.historico = []
         self.ultimo_sinal = time.time()
-        self.encerrar = False
+        self.saindo_em = None
+        self.desligando = False
+        self.monitor = {"fonte": None, "backend": None, "nome": None,
+                        "cpu_nome": None}
+
+    def viva(self):
+        """Cancela qualquer saida agendada. A pagina esta aqui."""
+        self.ultimo_sinal = time.time()
+        self.saindo_em = None
 
     # ------------------------------------------------------ eventos
 
     def inscrever(self):
         fila = queue.Queue()
+        self.viva()
         with self.trava:
             self.ouvintes.append(fila)
             passado = list(self.historico)
@@ -65,14 +79,19 @@ class Estado:
             if fila in self.ouvintes:
                 self.ouvintes.remove(fila)
 
-    def publicar(self, tipo, dados):
+    def publicar(self, tipo, dados, guardar=True):
         item = {"tipo": tipo, "dados": dados}
         with self.trava:
-            self.historico.append(item)
-            del self.historico[:-400]
+            if guardar:
+                self.historico.append(item)
+                del self.historico[:-400]
             ouvintes = list(self.ouvintes)
         for f in ouvintes:
             f.put(item)
+
+    def tem_ouvinte(self):
+        with self.trava:
+            return bool(self.ouvintes)
 
     def limpar_historico(self):
         with self.trava:
@@ -80,6 +99,107 @@ class Estado:
 
 
 ESTADO = Estado()
+
+
+# ----------------------------------------------------------------- monitor
+# O .blend guarda so 'GPU' ou 'CPU'. Qual placa e qual backend vem do
+# hardware, entao a fonte do grafico e escolhida a partir do que a
+# inspecao enumerou - a mesma ordem de preferencia do render.py.
+
+FONTE_POR_BACKEND = {"OPTIX": "nvidia", "CUDA": "nvidia",
+                     "HIP": "amd", "ONEAPI": "intel", "METAL": "metal"}
+
+
+def definir_monitor(insp):
+    disp = (insp or {}).get("dispositivos") or {}
+    backend = disp.get("backend")
+    fonte = FONTE_POR_BACKEND.get(backend)
+    if fonte == "nvidia" and not shutil.which("nvidia-smi"):
+        fonte = None
+    if fonte in ("amd", "intel", "metal"):
+        # sem ferramenta de linha de comando equivalente ao nvidia-smi
+        fonte = None
+    # 'cpu_nome' e nao 'cpu' de proposito: a amostra usa 'cpu' para a
+    # porcentagem, e um update() com a mesma chave sobrescreveria o numero
+    # pelo nome do processador.
+    ESTADO.monitor = {
+        "fonte": fonte,
+        "backend": backend,
+        "nome": disp.get("nome") if fonte else None,
+        "cpu_nome": disp.get("cpu"),
+    }
+    return ESTADO.monitor
+
+
+def _cpu_relogio():
+    """Uso de CPU via GetSystemTimes. Instantaneo e sem dependencia."""
+    if os.name != "nt":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class FILETIME(ctypes.Structure):
+        _fields_ = [("baixo", wintypes.DWORD), ("alto", wintypes.DWORD)]
+
+    ocioso, nucleo, usuario = FILETIME(), FILETIME(), FILETIME()
+    ok = ctypes.windll.kernel32.GetSystemTimes(
+        ctypes.byref(ocioso), ctypes.byref(nucleo), ctypes.byref(usuario))
+    if not ok:
+        return None
+    junta = lambda f: (f.alto << 32) | f.baixo
+    return junta(ocioso), junta(nucleo), junta(usuario)
+
+
+CAMPOS_NVIDIA = "utilization.gpu,memory.used,memory.total,temperature.gpu"
+
+
+def _amostra_nvidia():
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=" + CAMPOS_NVIDIA,
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+            startupinfo=nucleo.sem_janela())
+    except Exception:
+        return None
+    linha = (r.stdout or "").strip().splitlines()
+    if not linha:
+        return None
+    partes = [p.strip() for p in linha[0].split(",")]
+    def num(i):
+        try:
+            return int(float(partes[i]))
+        except (IndexError, ValueError):
+            return None
+    return {"gpu": num(0), "vram_usada": num(1), "vram_total": num(2),
+            "temp": num(3)}
+
+
+def monitorar():
+    """Amostra a cada segundo, mas so enquanto alguem estiver ouvindo."""
+    anterior = _cpu_relogio()
+    while not ESTADO.desligando:
+        time.sleep(1.0)
+        if not ESTADO.tem_ouvinte():
+            anterior = _cpu_relogio()
+            continue
+
+        agora = _cpu_relogio()
+        cpu = None
+        if anterior and agora:
+            d_ocioso = agora[0] - anterior[0]
+            d_total = (agora[1] - anterior[1]) + (agora[2] - anterior[2])
+            if d_total > 0:
+                cpu = max(0, min(100, round(100.0 * (1.0 - d_ocioso / d_total))))
+        anterior = agora
+
+        dados = {"cpu": cpu, "rodando": ESTADO.processo is not None}
+        dados.update(ESTADO.monitor)
+        if ESTADO.monitor.get("fonte") == "nvidia":
+            leitura = _amostra_nvidia()
+            if leitura:
+                dados.update(leitura)
+        ESTADO.publicar("monitor", dados, guardar=False)
 
 
 # ------------------------------------------------------------------ render
@@ -135,6 +255,7 @@ def api_inspecionar(corpo):
     insp = nucleo.inspecionar(blend, (corpo.get("blender") or "").strip())
     ESTADO.insp = insp
     ESTADO.blend = blend
+    insp["monitor"] = definir_monitor(insp)
     return insp
 
 
@@ -242,13 +363,15 @@ def api_previa(corpo):
 
 
 def api_sinal(_corpo):
-    ESTADO.ultimo_sinal = time.time()
+    ESTADO.viva()
     return {"ok": True, "rodando": ESTADO.processo is not None}
 
 
 def api_sair(_corpo):
-    ESTADO.encerrar = True
-    return {"ok": True}
+    # 'pagehide' tambem dispara em F5 e navegacao, entao aqui so se agenda
+    # a saida. Se a pagina voltar dentro da carencia, ESTADO.viva() cancela.
+    ESTADO.saindo_em = time.time() + GRACA_SAIDA
+    return {"ok": True, "em": GRACA_SAIDA}
 
 
 ROTAS = {
@@ -370,16 +493,22 @@ def porta_livre():
 
 
 def vigia(servidor):
-    """Desliga o servidor quando a pagina para de dar sinal de vida."""
+    """Desliga o servidor quando a pagina vai embora de verdade.
+
+    Um lote em andamento segura o servidor: fechar a aba no meio de um
+    render nao interrompe o lote.
+    """
     while True:
-        time.sleep(5)
-        if ESTADO.encerrar:
-            break
+        time.sleep(2)
         if ESTADO.processo is not None:
             ESTADO.ultimo_sinal = time.time()
             continue
+        agendado = ESTADO.saindo_em
+        if agendado is not None and time.time() >= agendado:
+            break
         if time.time() - ESTADO.ultimo_sinal > SEGUNDOS_SEM_SINAL:
             break
+    ESTADO.desligando = True
     servidor.shutdown()
 
 
@@ -393,6 +522,7 @@ def main():
     print(endereco)
     print("(feche a aba do navegador para encerrar)")
     threading.Thread(target=vigia, args=(servidor,), daemon=True).start()
+    threading.Thread(target=monitorar, daemon=True).start()
     try:
         webbrowser.open(endereco)
     except Exception:

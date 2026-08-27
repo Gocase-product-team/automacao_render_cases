@@ -157,6 +157,34 @@ Aparecem com o nome que têm no `.blend`, com um checkbox para entrar ou
 não no lote e um campo de texto para o rótulo que vira pasta. A ordem dos
 rótulos é sua: `Camera.003` não precisa ser a `POS 4`.
 
+## Monitor de dispositivo (só na web)
+
+Acima da barra de progresso há um gráfico ao vivo do dispositivo que está
+renderizando, atualizado a cada segundo, com 60 segundos de histórico.
+
+A fonte não é fixa. O `.blend` guarda apenas `GPU` ou `CPU` — **qual**
+placa e qual backend não estão nele, vêm das preferências do Blender e do
+hardware. Então a inspeção enumera os dispositivos na mesma ordem de
+preferência que o `render.py` usa (OPTIX → CUDA → HIP → METAL → ONEAPI) e
+o monitor escolhe como medir:
+
+| Backend detectado | Fonte da medição |
+|---|---|
+| OPTIX, CUDA | `nvidia-smi` — uso, VRAM e temperatura |
+| HIP, METAL, ONEAPI | sem equivalente de linha de comando; mostra a CPU |
+| nenhum / CPU | uso de CPU |
+
+O uso de CPU vem de `GetSystemTimes` por `ctypes`, sem dependência
+externa. A linha da CPU aparece junto com a da GPU de propósito: se um
+render cair para CPU sem você perceber, o gráfico mostra na hora — GPU
+parada e CPU no teto.
+
+A VRAM fica em vermelho acima de 90%. Numa placa de 6 GB isso importa:
+quando o Cycles não cabe na VRAM, o render desaba de desempenho.
+
+Referência medida no `studio.blend`: ociosa ~12%, durante o render pico
+de 97% com platô de 92–97%, VRAM em 1,4 de 6 GB.
+
 ## Botões da aba Render
 
 - **Conferir** — valida o config contra o `.blend` sem renderizar nada.
