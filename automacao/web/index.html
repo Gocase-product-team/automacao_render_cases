@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render de lote</title>
+<style>
+:root{
+  --fundo:#f4f4f2; --painel:#ffffff; --painel2:#fafaf9;
+  --texto:#22252a; --texto2:#5f636b; --texto3:#8b9098;
+  --borda:#e2e2df; --borda2:#cfcfcb;
+  --acento:#1f6feb; --acento-fundo:#e8f0fe; --acento-texto:#0b4fbf;
+  --ok:#0a7a3a; --ok-fundo:#e6f5ec;
+  --erro:#c02626; --erro-fundo:#fdeaea;
+  --aviso:#8a5a00;
+  --r:7px; --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --fundo:#15171a; --painel:#1e2126; --painel2:#23262c;
+    --texto:#e7e9ec; --texto2:#a4a9b2; --texto3:#767c86;
+    --borda:#2c3037; --borda2:#3a3f47;
+    --acento:#4d8ff5; --acento-fundo:#16263f; --acento-texto:#8fbaff;
+    --ok:#4ac47e; --ok-fundo:#12291d;
+    --erro:#f07171; --erro-fundo:#2c1717;
+    --aviso:#d9a441;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--fundo);color:var(--texto);
+  font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  display:flex;flex-direction:column}
+svg.i{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- topo ---------- */
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;
+  background:var(--painel);border-bottom:1px solid var(--borda)}
+.marca{font-weight:600;letter-spacing:-.01em}
+#nomeProjeto{color:var(--texto3);font-size:13px;font-family:var(--mono)}
+header .dir{margin-left:auto;display:flex;gap:6px}
+
+button{display:inline-flex;align-items:center;gap:6px;
+  background:var(--painel2);color:var(--texto);border:1px solid var(--borda2);
+  border-radius:var(--r);padding:5px 11px;font:inherit;font-size:13px;
+  cursor:pointer;transition:background .12s,border-color .12s}
+button:hover:not(:disabled){background:var(--acento-fundo);border-color:var(--acento)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:default}
+button.primario{background:var(--acento);border-color:var(--acento);color:#fff}
+button.primario:hover:not(:disabled){filter:brightness(1.08);background:var(--acento)}
+button.mini{padding:3px 6px;font-size:12px}
+button.perigo:hover:not(:disabled){background:var(--erro-fundo);border-color:var(--erro)}
+
+/* ---------- abas ---------- */
+nav{display:flex;gap:2px;padding:0 16px;background:var(--painel);
+  border-bottom:1px solid var(--borda)}
+nav button{background:none;border:none;border-radius:0;border-bottom:2px solid transparent;
+  color:var(--texto2);padding:9px 14px;font-size:13.5px}
+nav button:hover{background:none;color:var(--texto);border-color:var(--borda2)}
+nav button.ativa{color:var(--acento);border-bottom-color:var(--acento);font-weight:600}
+
+main{flex:1;overflow:auto;padding:16px}
+section{display:none}
+section.ativa{display:block}
+
+/* ---------- caixas ---------- */
+.caixa{background:var(--painel);border:1px solid var(--borda);
+  border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.caixa>h2{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--texto2);
+  text-transform:none;letter-spacing:.01em}
+.linha{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.linha>label{width:130px;flex:none;color:var(--texto2);font-size:13px}
+input[type=text],input[type=number],select{background:var(--painel2);color:var(--texto);
+  border:1px solid var(--borda2);border-radius:var(--r);padding:5px 9px;
+  font:inherit;font-size:13px;min-width:0}
+input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--acento);
+  box-shadow:0 0 0 3px var(--acento-fundo)}
+input.cresce{flex:1}
+input.mono{font-family:var(--mono);font-size:12.5px}
+input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(--acento);
+  cursor:pointer;flex:none;margin:0}
+.dica{color:var(--texto3);font-size:12.5px}
+.previa{font-family:var(--mono);font-size:12px;color:var(--ok);
+  background:var(--ok-fundo);border-radius:var(--r);padding:6px 9px;
+  overflow-x:auto;white-space:nowrap}
+.previa.ruim{color:var(--erro);background:var(--erro-fundo)}
+.selo{font-size:12px;padding:2px 8px;border-radius:20px;
+  background:var(--painel2);color:var(--texto3);border:1px solid var(--borda)}
+.selo.bom{background:var(--ok-fundo);color:var(--ok);border-color:transparent}
+
+/* ---------- peças ---------- */
+.duas{display:grid;grid-template-columns:270px minmax(0,1fr);gap:14px;align-items:start}
+#listaMat{max-height:calc(100vh - 250px);overflow-y:auto;
+  border:1px solid var(--borda);border-radius:var(--r)}
+.mat{display:flex;align-items:center;gap:9px;padding:5px 9px;cursor:grab;
+  border-bottom:1px solid var(--borda);font-size:12.5px}
+.mat:last-child{border-bottom:none}
+.mat:hover{background:var(--acento-fundo)}
+.mat.arrastando{opacity:.4}
+.amostra{width:15px;height:15px;border-radius:4px;flex:none;
+  border:1px solid var(--borda2)}
+.amostra.textura{background-image:
+  linear-gradient(45deg,var(--borda2) 25%,transparent 25%,transparent 75%,var(--borda2) 75%),
+  linear-gradient(45deg,var(--borda2) 25%,transparent 25%,transparent 75%,var(--borda2) 75%);
+  background-size:8px 8px;background-position:0 0,4px 4px;background-color:var(--painel2)}
+.mat .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mat .uso{margin-left:auto;color:var(--texto3);font-size:11px;flex:none}
+
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{border:1px solid var(--borda);padding:0;text-align:left;vertical-align:middle}
+th{background:var(--painel2);font-weight:600;color:var(--texto2);font-size:12px}
+th .th{display:flex;align-items:center;gap:2px;padding:4px 6px}
+th input{border:1px dashed transparent;background:none;width:100%;
+  font-weight:600;font-size:12px;padding:2px 4px}
+th input:hover{border-color:var(--borda2)}
+td input{border:1px solid transparent;background:none;width:100%;
+  padding:5px 7px;font-size:12.5px;border-radius:0}
+td input:hover{background:var(--painel2)}
+td.num{width:52px}
+td.num input{font-family:var(--mono);text-align:center}
+.celula{display:flex;align-items:center;gap:7px;padding:5px 7px;min-height:29px}
+.celula.solta{background:var(--acento-fundo);outline:2px solid var(--acento);outline-offset:-2px}
+.celula .nm{font-family:var(--mono);font-size:11.5px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.celula.vazia{color:var(--texto3);justify-content:center;font-size:14px}
+.celula .x{margin-left:auto;opacity:0;color:var(--texto3);cursor:pointer;
+  font-size:14px;line-height:1;padding:0 2px;flex:none}
+.celula:hover .x{opacity:1}
+.celula .x:hover{color:var(--erro)}
+.barrinha{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.ordem{display:flex;flex-direction:column;gap:1px;padding:0 4px}
+.ordem button{padding:0 3px;font-size:9px;line-height:1.25;min-height:0}
+
+/* ---------- listas de marcar ---------- */
+.marcaveis{border:1px solid var(--borda);border-radius:var(--r);
+  max-height:230px;overflow-y:auto}
+.item{display:flex;align-items:center;gap:10px;padding:5px 10px;
+  border-bottom:1px solid var(--borda);font-size:13px}
+.item:last-child{border-bottom:none}
+.item:hover{background:var(--painel2)}
+.item .obj{font-family:var(--mono);font-size:12.5px;min-width:210px}
+.item .meta{color:var(--texto3);font-size:12px}
+.item .dir{margin-left:auto;display:flex;align-items:center;gap:8px}
+.item input[type=text]{width:170px}
+.cabecalho{display:flex;gap:10px;padding:0 10px 5px;color:var(--texto3);font-size:12px}
+
+/* ---------- render ---------- */
+.painelConta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--acento-fundo);border-radius:12px;padding:11px 15px;margin-bottom:12px}
+.painelConta .n{font-size:15px;font-weight:600;color:var(--acento-texto)}
+.painelConta .sub{font-size:12.5px;color:var(--acento-texto);opacity:.85}
+.painelConta .dir{margin-left:auto;display:flex;gap:6px}
+progress{width:100%;height:6px;appearance:none;border:none;
+  background:var(--painel2);border-radius:3px;overflow:hidden;display:block;margin-bottom:10px}
+progress::-webkit-progress-bar{background:var(--painel2)}
+progress::-webkit-progress-value{background:var(--acento)}
+#log{font-family:var(--mono);font-size:12px;background:var(--painel);
+  border:1px solid var(--borda);border-radius:var(--r);padding:9px 11px;
+  height:270px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+#log div{padding:1px 0}
+#log .ok{color:var(--ok)}
+#log .erro{color:var(--erro)}
+#log .fraco{color:var(--texto3)}
+#log .aviso{color:var(--aviso)}
+
+footer{padding:5px 16px;background:var(--painel);border-top:1px solid var(--borda);
+  color:var(--texto2);font-size:12.5px;display:flex;gap:10px;align-items:center}
+footer .ponto{width:7px;height:7px;border-radius:50%;background:var(--texto3);flex:none}
+footer .ponto.on{background:var(--ok)}
+footer .ponto.busy{background:var(--acento);animation:pulsa 1s infinite}
+@keyframes pulsa{50%{opacity:.3}}
+.vazio{color:var(--texto3);font-size:12.5px;padding:14px;text-align:center}
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lapis" viewBox="0 0 24 24"><path d="M4 20h4L20 8l-4-4L4 16v4z"/></symbol>
+  <symbol id="i-lixo" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-lista" viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M10 6h10M10 12h10M10 18h10"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8V4z"/></symbol>
+  <symbol id="i-parar" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 13l5 5L20 6"/></symbol>
+  <symbol id="i-olho" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-pasta" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3V7z"/></symbol>
+  <symbol id="i-disco" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4V4zM8 4v6h8V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-folha" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3zM14 3v4h4M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+  <symbol id="i-abrir" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 6l2-2h5l2 2"/></symbol>
+</svg>
+
+<header>
+  <span class="marca">Render de lote</span>
+  <span id="nomeProjeto">projeto novo</span>
+  <div class="dir">
+    <button onclick="projetoNovo()"><svg class="i"><use href="#i-folha"/></svg>Novo</button>
+    <button onclick="abrirDialogoProjetos()"><svg class="i"><use href="#i-abrir"/></svg>Abrir</button>
+    <button onclick="salvarProjeto()"><svg class="i"><use href="#i-disco"/></svg>Salvar</button>
+  </div>
+</header>
+
+<nav>
+  <button class="ativa" data-aba="projeto">Projeto</button>
+  <button data-aba="pecas">Peças e variações</button>
+  <button data-aba="cameras">Câmeras e máscara</button>
+  <button data-aba="render">Render</button>
+</nav>
+
+<main>
+
+<!-- ============ PROJETO ============ -->
+<section id="aba-projeto" class="ativa">
+  <div class="caixa">
+    <h2>Arquivo</h2>
+    <div class="linha">
+      <label>arquivo .blend</label>
+      <input type="text" class="cresce mono" id="f-blend">
+      <button onclick="escolher('blend','f-blend')">…</button>
+    </div>
+    <div class="linha">
+      <label>blender.exe</label>
+      <input type="text" class="cresce mono" id="f-exe">
+      <button onclick="escolher('exe','f-exe')">…</button>
+    </div>
+    <div class="linha">
+      <label></label>
+      <button class="primario" onclick="inspecionar()">
+        <svg class="i"><use href="#i-lupa"/></svg>Inspecionar o .blend</button>
+      <span class="selo" id="seloInsp">não inspecionado</span>
+    </div>
+  </div>
+
+  <div class="caixa">
+    <h2>Saída</h2>
+    <div class="linha">
+      <label>pasta raiz</label>
+      <input type="text" class="cresce mono" id="f-raiz">
+      <button onclick="escolher('pasta','f-raiz')">…</button>
+    </div>
+    <div class="linha">
+      <label>template</label>
+      <input type="text" class="cresce mono" id="f-template">
+    </div>
+    <div class="linha">
+      <label>aparelho</label><input type="text" class="cresce" id="f-aparelho">
+    </div>
+    <div class="linha">
+      <label>linha</label><input type="text" class="cresce" id="f-linha">
+    </div>
+    <p class="dica" style="margin:4px 0 8px">
+      marcadores: <code>{aparelho}</code> <code>{linha}</code>
+      <code>{capinha}</code> <code>{camera}</code> <code>{numero}</code></p>
+    <div class="previa" id="previa">—</div>
+  </div>
+
+  <div class="caixa">
+    <h2>Qualidade</h2>
+    <div class="linha">
+      <label>final</label>
+      <span class="dica">samples</span><input type="number" id="f-spp" style="width:80px">
+      <span class="dica">resolução</span><input type="number" id="f-res" style="width:80px">
+    </div>
+    <div class="linha">
+      <label>preview</label>
+      <span class="dica">samples</span><input type="number" id="f-pspp" style="width:80px">
+      <span class="dica">resolução</span><input type="number" id="f-pres" style="width:80px">
+    </div>
+    <div class="linha">
+      <label></label>
+      <input type="checkbox" id="f-gpu">
+      <span class="dica">forçar GPU no Cycles (necessário em background)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PEÇAS ============ -->
+<section id="aba-pecas">
+  <div class="duas">
+    <div class="caixa" style="margin:0">
+      <h2>Todos os materiais</h2>
+      <p class="dica" style="margin:-4px 0 10px">
+        arraste para uma célula da grade. o xadrez indica material regido por textura.</p>
+      <div id="listaMat"><div class="vazio">inspecione o .blend</div></div>
+    </div>
+    <div>
+      <div class="caixa">
+        <h2>Capinha &nbsp;·&nbsp; define o nome da pasta</h2>
+        <div class="barrinha" id="barra-capinha"></div>
+        <div style="overflow-x:auto"><table id="grade-capinha"></table></div>
+      </div>
+      <div class="caixa">
+        <h2>Corpo &nbsp;·&nbsp; define o número do arquivo</h2>
+        <div class="barrinha" id="barra-corpo"></div>
+        <div style="overflow-x:auto"><table id="grade-corpo"></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CÂMERAS ============ -->
+<section id="aba-cameras">
+  <div class="caixa">
+    <h2>Câmeras do arquivo</h2>
+    <p class="dica" style="margin:-4px 0 10px">
+      marque as que entram no lote. o rótulo é o que vira pasta, e a ordem é sua.</p>
+    <div class="marcaveis" id="listaCam"><div class="vazio">inspecione o .blend</div></div>
+  </div>
+  <div class="caixa">
+    <h2>Máscara</h2>
+    <div class="linha" style="flex-wrap:wrap">
+      <input type="checkbox" id="f-masc">
+      <span>gerar máscara por câmera</span>
+      <span class="dica" style="margin-left:14px">número</span>
+      <input type="text" id="f-mascnum" style="width:64px" class="mono">
+      <span class="dica">samples</span>
+      <input type="number" id="f-mascspp" style="width:70px">
+    </div>
+    <p class="dica" style="margin:2px 0 10px">
+      marque os objetos que aparecem nela — o resto é escondido nesse render. é
+      geometria pura, então renderiza uma vez por câmera e é copiada para as
+      outras pastas de capinha.</p>
+    <div class="marcaveis" id="listaMasc"><div class="vazio">inspecione o .blend</div></div>
+  </div>
+</section>
+
+<!-- ============ RENDER ============ -->
+<section id="aba-render">
+  <div class="duas" style="grid-template-columns:1fr 1fr">
+    <div class="caixa" style="margin:0 0 14px"><h2>Capinhas</h2>
+      <div class="marcaveis" id="selCapinha" style="max-height:190px"></div></div>
+    <div class="caixa" style="margin:0 0 14px"><h2>Corpos</h2>
+      <div class="marcaveis" id="selCorpo" style="max-height:190px"></div></div>
+  </div>
+
+  <div class="painelConta">
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="radio" name="modo" value="final" checked onchange="recontar()">final</label>
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="radio" name="modo" value="preview" onchange="recontar()">preview</label>
+    <label style="display:flex;align-items:center;gap:6px;margin-left:8px">
+      <input type="checkbox" id="f-forcar" onchange="recontar()">refazer o que já existe</label>
+    <span class="n" id="conta">—</span><span class="sub" id="contaSub"></span>
+    <div class="dir">
+      <button onclick="conferir()"><svg class="i"><use href="#i-check"/></svg>Conferir</button>
+      <button onclick="dryRun()"><svg class="i"><use href="#i-olho"/></svg>Dry-run</button>
+      <button class="perigo" id="btParar" disabled onclick="parar()">
+        <svg class="i"><use href="#i-parar"/></svg>Parar</button>
+      <button class="primario" id="btRender" onclick="renderizar()">
+        <svg class="i"><use href="#i-play"/></svg>Renderizar</button>
+    </div>
+  </div>
+
+  <progress id="prog" value="0" max="1"></progress>
+  <div id="log"></div>
+</section>
+
+</main>
+
+<footer>
+  <span class="ponto" id="ponto"></span>
+  <span id="barra">pronto</span>
+</footer>
+
+<script>
+"use strict";
+
+const S = {cfg:cfgNovo(), insp:null, nome:"", rodando:false, feitos:0, total:0};
+
+function cfgNovo(){return{
+  blend:"", blender:"", raiz:"",
+  template:"{aparelho}/{capinha}/{camera}/{numero}.png",
+  tokens:{aparelho:"", linha:""},
+  qualidade:{samples:256, resolucao:1000, gpu:true},
+  preview:{samples:32, resolucao:500, gpu:true},
+  grupos:{capinha:{pecas:[],variacoes:[]}, corpo:{pecas:[],variacoes:[]}},
+  cameras:[], mascara:{ativa:true,objetos:[],numero:"01",samples:8},
+  numero_inicial:2};}
+
+const $ = s => document.querySelector(s);
+const el = (t,c,x) => {const n=document.createElement(t); if(c)n.className=c;
+  if(x!==undefined)n.textContent=x; return n;};
+
+async function api(rota, corpo){
+  const r = await fetch("/api"+rota, {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(corpo||{})});
+  const d = await r.json();
+  if(d && d.erro) throw new Error(d.erro);
+  return d;
+}
+function aviso(t, ruim){$("#barra").textContent=t;
+  $("#barra").style.color = ruim ? "var(--erro)" : "";}
+
+/* ---------------- abas ---------------- */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("ativa"));
+  document.querySelectorAll("section").forEach(x=>x.classList.remove("ativa"));
+  b.classList.add("ativa");
+  $("#aba-"+b.dataset.aba).classList.add("ativa");
+});
+function irPara(aba){document.querySelector(`nav button[data-aba="${aba}"]`).click();}
+
+/* ---------------- campos ---------------- */
+const CAMPOS = [
+  ["f-blend", c=>c.blend, (c,v)=>c.blend=v],
+  ["f-exe", c=>c.blender, (c,v)=>c.blender=v],
+  ["f-raiz", c=>c.raiz, (c,v)=>c.raiz=v],
+  ["f-template", c=>c.template, (c,v)=>c.template=v],
+  ["f-aparelho", c=>c.tokens.aparelho, (c,v)=>c.tokens.aparelho=v],
+  ["f-linha", c=>c.tokens.linha, (c,v)=>c.tokens.linha=v],
+  ["f-spp", c=>c.qualidade.samples, (c,v)=>c.qualidade.samples=+v||256],
+  ["f-res", c=>c.qualidade.resolucao, (c,v)=>c.qualidade.resolucao=+v||1000],
+  ["f-pspp", c=>c.preview.samples, (c,v)=>c.preview.samples=+v||32],
+  ["f-pres", c=>c.preview.resolucao, (c,v)=>c.preview.resolucao=+v||500],
+  ["f-mascnum", c=>c.mascara.numero, (c,v)=>c.mascara.numero=v||"01"],
+  ["f-mascspp", c=>c.mascara.samples, (c,v)=>c.mascara.samples=+v||8],
+];
+function espalhar(){
+  for(const [id,ler] of CAMPOS) $("#"+id).value = ler(S.cfg) ?? "";
+  $("#f-gpu").checked = !!S.cfg.qualidade.gpu;
+  $("#f-masc").checked = !!S.cfg.mascara.ativa;
+  desenharTudo();
+}
+for(const [id,,grava] of CAMPOS){
+  const n = $("#"+id);
+  n.addEventListener("input", ()=>{grava(S.cfg, n.value); atualizarPrevia(); recontar();});
+}
+$("#f-gpu").onchange = e=>{S.cfg.qualidade.gpu=e.target.checked;
+  S.cfg.preview.gpu=e.target.checked;};
+$("#f-masc").onchange = e=>{S.cfg.mascara.ativa=e.target.checked; recontar();};
+
+async function escolher(modo, id){
+  aviso("aguardando o diálogo…");
+  try{
+    const d = await api("/escolher",{modo});
+    if(d.caminho){
+      $("#"+id).value = d.caminho;
+      $("#"+id).dispatchEvent(new Event("input"));
+      aviso("pronto");
+    } else aviso("cancelado");
+  }catch(e){aviso("falha no diálogo: "+e.message+" — cole o caminho no campo", true);}
+}
+
+let tPrevia;
+function atualizarPrevia(){
+  clearTimeout(tPrevia);
+  tPrevia = setTimeout(async()=>{
+    const cap = (S.cfg.grupos.capinha.variacoes[0]||{}).nome || "capinha";
+    const cam = (S.cfg.cameras[0]||{}).rotulo || "POS 1";
+    try{
+      const d = await api("/previa",{cfg:S.cfg, capinha:cap, camera:cam, numero:"02"});
+      $("#previa").textContent = d.caminho || d.erro || "—";
+      $("#previa").classList.toggle("ruim", !d.caminho);
+    }catch(e){$("#previa").textContent="("+e.message+")";
+      $("#previa").classList.add("ruim");}
+  }, 220);
+}
+
+/* ---------------- inspeção ---------------- */
+async function inspecionar(){
+  if(!S.cfg.blend){aviso("escolha um .blend primeiro", true); return;}
+  aviso("inspecionando o arquivo…"); ponto("busy");
+  try{
+    S.insp = await api("/inspecionar",{blend:S.cfg.blend, blender:S.cfg.blender});
+  }catch(e){
+    aviso("a inspeção falhou: "+e.message, true); ponto(""); return;
+  }
+  sincronizarCameras();
+  const c = S.insp.cycles||{};
+  const s = $("#seloInsp");
+  s.textContent = `${S.insp.materiais.length} materiais · ${S.insp.cameras.length} câmeras · ${S.insp.engine} ${c.samples||"?"} samples`;
+  s.classList.add("bom");
+  aviso("inspeção concluída"); ponto("on");
+  desenharTudo();
+}
+function sincronizarCameras(){
+  const antigas = {};
+  S.cfg.cameras.forEach(c=>antigas[c.objeto]=c);
+  S.cfg.cameras = S.insp.cameras.map((cam,i)=>{
+    const a = antigas[cam.nome]||{};
+    return {objeto:cam.nome, rotulo:a.rotulo||("POS "+(i+1)),
+            ativa:a.ativa!==undefined?a.ativa:true};
+  });
+}
+
+/* ---------------- lista de materiais ---------------- */
+function desenharMateriais(){
+  const alvo = $("#listaMat"); alvo.innerHTML="";
+  if(!S.insp){alvo.append(el("div","vazio","inspecione o .blend")); return;}
+  for(const m of S.insp.materiais){
+    const d = el("div","mat"); d.draggable = true;
+    const a = el("div","amostra"+(m.cor?"":" textura"));
+    if(m.cor) a.style.background = m.cor;
+    d.append(a, el("span","nm",m.nome));
+    if(m.slots_ocupados) d.append(el("span","uso",m.slots_ocupados+"×"));
+    d.addEventListener("dragstart", ev=>{
+      ev.dataTransfer.setData("text/plain", m.nome);
+      ev.dataTransfer.effectAllowed = "copy";
+      d.classList.add("arrastando");
+    });
+    d.addEventListener("dragend", ()=>d.classList.remove("arrastando"));
+    alvo.append(d);
+  }
+}
+function corDe(nome){
+  if(!S.insp) return null;
+  const m = S.insp.materiais.find(x=>x.nome===nome);
+  return m ? m.cor : null;
+}
+
+/* ---------------- grades ---------------- */
+function ajustar(g){
+  for(const v of g.variacoes){
+    v.materiais = v.materiais||[];
+    while(v.materiais.length < g.pecas.length) v.materiais.push(null);
+    v.materiais.length = g.pecas.length;
+  }
+}
+function desenharGrade(nome){
+  const g = S.cfg.grupos[nome]; ajustar(g);
+  const ehCorpo = nome==="corpo";
+
+  const barra = $("#barra-"+nome); barra.innerHTML="";
+  barra.append(
+    bt("peça","i-mais",()=>{g.pecas.push("peça "+(g.pecas.length+1)); desenharGrade(nome);}),
+    bt("variação","i-mais",()=>{
+      const v = {nome:"nova "+(g.variacoes.length+1), materiais:g.pecas.map(()=>null)};
+      if(ehCorpo) v.numero = String(+(S.cfg.numero_inicial||2)+g.variacoes.length).padStart(2,"0");
+      g.variacoes.push(v); desenharGrade(nome);}));
+  if(ehCorpo) barra.append(bt("renumerar","i-lista",()=>{
+    g.variacoes.forEach((v,i)=>v.numero=String(+(S.cfg.numero_inicial||2)+i).padStart(2,"0"));
+    desenharGrade(nome);}));
+
+  const t = $("#grade-"+nome); t.innerHTML="";
+  if(!g.pecas.length && !g.variacoes.length){
+    t.append(el("caption","vazio","adicione uma peça e uma variação para começar"));
+    return;
+  }
+
+  const thead = el("thead"), tr = el("tr");
+  if(ehCorpo) tr.append(cabecalhoSimples("nº"));
+  tr.append(cabecalhoSimples(ehCorpo ? "nome" : "nome da pasta"));
+  g.pecas.forEach((p,i)=>{
+    const th = el("th"), cx = el("div","th");
+    const inp = document.createElement("input");
+    inp.type="text"; inp.value=p; inp.title="nome da peça";
+    inp.oninput = ()=>{g.pecas[i]=inp.value;};
+    const ord = el("div","ordem");
+    ord.append(btMini("‹",()=>moverPeca(nome,i,-1)), btMini("›",()=>moverPeca(nome,i,1)));
+    const lixo = btIcone("i-lixo","remover esta peça",()=>{
+      g.pecas.splice(i,1);
+      g.variacoes.forEach(v=>v.materiais.splice(i,1));
+      desenharGrade(nome);});
+    cx.append(inp, ord, lixo); th.append(cx); tr.append(th);
+  });
+  thead.append(tr); t.append(thead);
+
+  const tb = el("tbody");
+  g.variacoes.forEach((v,li)=>{
+    const linha = el("tr");
+    if(ehCorpo) linha.append(tdInput(v.numero||"", x=>v.numero=x, "num"));
+    linha.append(tdInput(v.nome||"", x=>{v.nome=x; atualizarPrevia(); desenharSelecao();}));
+    g.pecas.forEach((_,ci)=>{
+      const td = el("td");
+      const mat = v.materiais[ci];
+      const c = el("celula"in{}?"div":"div", "celula"+(mat?"":" vazia"));
+      if(mat){
+        const a = el("div","amostra"+(corDe(mat)?"":" textura"));
+        const cor = corDe(mat); if(cor) a.style.background = cor;
+        const x = el("span","x","×"); x.title="limpar";
+        x.onclick = ()=>{v.materiais[ci]=null; desenharGrade(nome);};
+        c.append(a, el("span","nm",mat), x);
+      } else c.textContent = "—";
+      c.addEventListener("dragover", ev=>{ev.preventDefault();
+        ev.dataTransfer.dropEffect="copy"; c.classList.add("solta");});
+      c.addEventListener("dragleave", ()=>c.classList.remove("solta"));
+      c.addEventListener("drop", ev=>{
+        ev.preventDefault(); c.classList.remove("solta");
+        const m = ev.dataTransfer.getData("text/plain");
+        if(!m) return;
+        v.materiais[ci] = m;
+        desenharGrade(nome);
+        aviso(`${m}  →  ${nome} / ${g.pecas[ci]||("peça "+(ci+1))}`);
+      });
+      td.append(c); linha.append(td);
+    });
+    const td = el("td"); td.style.width="72px";
+    const cx = el("div","celula");
+    cx.append(btMini("↑",()=>moverLinha(nome,li,-1)),
+              btMini("↓",()=>moverLinha(nome,li,1)),
+              btIcone("i-lixo","remover esta variação",()=>{
+                g.variacoes.splice(li,1); desenharGrade(nome);}));
+    td.append(cx); linha.append(td);
+    tb.append(linha);
+  });
+  t.append(tb);
+  desenharSelecao();
+}
+function cabecalhoSimples(txt){const th=el("th"); th.append(el("div","th",txt)); return th;}
+function tdInput(valor, grava, cls){
+  const td = el("td", cls||"");
+  const i = document.createElement("input");
+  i.type="text"; i.value=valor;
+  i.oninput = ()=>grava(i.value);
+  td.append(i); return td;
+}
+function bt(txt, icone, fn){
+  const b = document.createElement("button");
+  b.innerHTML = `<svg class="i"><use href="#${icone}"/></svg>`;
+  b.append(document.createTextNode(txt)); b.onclick = fn; return b;
+}
+function btMini(txt, fn){
+  const b = document.createElement("button");
+  b.className="mini"; b.textContent=txt; b.onclick=fn; return b;
+}
+function btIcone(icone, titulo, fn){
+  const b = document.createElement("button");
+  b.className="mini perigo"; b.title=titulo;
+  b.innerHTML = `<svg class="i" style="width:13px;height:13px"><use href="#${icone}"/></svg>`;
+  b.onclick = fn; return b;
+}
+function moverPeca(nome, i, passo){
+  const g = S.cfg.grupos[nome], j = i+passo;
+  if(j<0 || j>=g.pecas.length) return;
+  [g.pecas[i], g.pecas[j]] = [g.pecas[j], g.pecas[i]];
+  g.variacoes.forEach(v=>{[v.materiais[i],v.materiais[j]]=[v.materiais[j],v.materiais[i]];});
+  desenharGrade(nome);
+}
+function moverLinha(nome, i, passo){
+  const vs = S.cfg.grupos[nome].variacoes, j = i+passo;
+  if(j<0 || j>=vs.length) return;
+  [vs[i],vs[j]] = [vs[j],vs[i]];
+  desenharGrade(nome);
+}
+
+/* ---------------- câmeras e máscara ---------------- */
+function desenharCameras(){
+  const alvo = $("#listaCam"); alvo.innerHTML="";
+  if(!S.cfg.cameras.length){
+    alvo.append(el("div","vazio","inspecione o .blend")); return;}
+  const lentes = {};
+  (S.insp?S.insp.cameras:[]).forEach(c=>lentes[c.nome]=c.lente);
+  S.cfg.cameras.forEach(c=>{
+    const d = el("div","item");
+    const ck = document.createElement("input");
+    ck.type="checkbox"; ck.checked = c.ativa!==false;
+    ck.onchange = ()=>{c.ativa=ck.checked; recontar();};
+    const inp = document.createElement("input");
+    inp.type="text"; inp.value=c.rotulo||"";
+    inp.oninput = ()=>{c.rotulo=inp.value; atualizarPrevia(); recontar();};
+    const dir = el("div","dir");
+    dir.append(inp, el("span","meta",(lentes[c.objeto]??"?")+" mm"));
+    d.append(ck, el("span","obj",c.objeto), dir);
+    alvo.append(d);
+  });
+}
+function desenharMascara(){
+  const alvo = $("#listaMasc"); alvo.innerHTML="";
+  if(!S.insp){alvo.append(el("div","vazio","inspecione o .blend")); return;}
+  const marcados = new Set(S.cfg.mascara.objetos||[]);
+  for(const o of S.insp.objetos){
+    const d = el("div","item");
+    const ck = document.createElement("input");
+    ck.type="checkbox"; ck.checked = marcados.has(o.nome);
+    ck.onchange = ()=>{
+      const s = new Set(S.cfg.mascara.objetos||[]);
+      ck.checked ? s.add(o.nome) : s.delete(o.nome);
+      S.cfg.mascara.objetos = [...s];
+      recontar();
+    };
+    const dir = el("div","dir");
+    dir.append(el("span","meta", o.faces.toLocaleString("pt-BR")+" faces"
+      + (o.oculto ? "   ·   oculto no arquivo" : "")));
+    d.append(ck, el("span","obj",o.nome), dir);
+    alvo.append(d);
+  }
+}
+
+/* ---------------- seleção ---------------- */
+function desenharSelecao(){
+  for(const chave of ["capinha","corpo"]){
+    const alvo = $("#sel"+chave[0].toUpperCase()+chave.slice(1));
+    alvo.innerHTML="";
+    const vs = S.cfg.grupos[chave].variacoes;
+    if(!vs.length){alvo.append(el("div","vazio","nenhuma variação")); return;}
+    vs.forEach(v=>{
+      if(v._sel===undefined) v._sel = true;
+      const d = el("div","item");
+      const ck = document.createElement("input");
+      ck.type="checkbox"; ck.checked = v._sel;
+      ck.onchange = ()=>{v._sel=ck.checked; recontar();};
+      const cheios = (v.materiais||[]).filter(Boolean).length;
+      const nm = (chave==="corpo" && v.numero ? v.numero+"  " : "") + (v.nome||"");
+      const dir = el("div","dir");
+      dir.append(el("span","meta",cheios+" peças"));
+      d.append(ck, el("span",null,nm), dir);
+      alvo.append(d);
+    });
+  }
+}
+const selDe = chave => S.cfg.grupos[chave].variacoes
+  .filter(v=>v._sel!==false).map(v=>v.nome);
+
+function desenharTudo(){
+  desenharMateriais(); desenharGrade("capinha"); desenharGrade("corpo");
+  desenharCameras(); desenharMascara(); desenharSelecao();
+  atualizarPrevia(); recontar();
+}
+
+/* ---------------- plano ---------------- */
+function modo(){return document.querySelector('input[name=modo]:checked').value;}
+function corpoPlano(){return {cfg:S.cfg, sel_capinha:selDe("capinha"),
+  sel_corpo:selDe("corpo"), preview:modo()==="preview",
+  forcar:$("#f-forcar").checked};}
+
+let tConta;
+function recontar(){
+  clearTimeout(tConta);
+  tConta = setTimeout(async()=>{
+    if(!S.insp){$("#conta").textContent="inspecione o .blend";
+      $("#contaSub").textContent=""; return;}
+    try{
+      const d = await api("/plano", corpoPlano());
+      const pend = d.jobs.filter(j=>!j.existe || $("#f-forcar").checked);
+      const seg = modo()==="final" ? 16 : 3;
+      const min = pend.length ? Math.max(1, Math.round(pend.length*seg/60)) : 0;
+      $("#conta").textContent = d.jobs.length + " renders";
+      $("#contaSub").textContent =
+        `${pend.length} a fazer · ~${min} min · +${d.copias.length} cópias de máscara`
+        + (d.erros.length ? `  ·  ${d.erros.length} erro(s)` : "");
+    }catch(e){$("#conta").textContent="—"; $("#contaSub").textContent=e.message;}
+  }, 260);
+}
+
+function logar(txt, cls){
+  const d = el("div", cls||"", txt);
+  $("#log").append(d); $("#log").scrollTop = $("#log").scrollHeight;
+}
+function limparLog(){$("#log").innerHTML="";}
+
+async function conferir(){
+  irPara("render");
+  if(!S.insp){limparLog(); logar("inspecione o .blend primeiro","erro"); return false;}
+  const d = await api("/plano", corpoPlano());
+  limparLog();
+  if(!d.erros.length && !d.avisos.length) logar("tudo certo, nada a corrigir","ok");
+  d.erros.forEach(x=>logar("ERRO   "+x,"erro"));
+  d.avisos.forEach(x=>logar("aviso  "+x,"aviso"));
+  return !d.erros.length;
+}
+async function dryRun(){
+  if(!await conferir()) return;
+  const d = await api("/plano", corpoPlano());
+  logar("");
+  logar(`${d.jobs.length} renders + ${d.copias.length} cópias de máscara`,"fraco");
+  d.jobs.forEach(j=>{
+    const pula = j.existe && !$("#f-forcar").checked;
+    logar((pula?"pula  ":"faz   ")+j.saida, pula?"fraco":null);
+  });
+  d.copias.forEach(([,dest])=>logar("cópia "+dest,"fraco"));
+}
+
+async function renderizar(){
+  if(!await conferir()) return;
+  limparLog();
+  try{
+    const d = await api("/renderizar", corpoPlano());
+    if(!d.ok){logar("não iniciou: "+d.motivo,"erro"); return;}
+  }catch(e){logar("falha: "+e.message,"erro"); return;}
+}
+async function parar(){try{await api("/parar");}catch(e){}}
+
+function ponto(cls){$("#ponto").className = "ponto"+(cls?" "+cls:"");}
+function travar(rodando){
+  S.rodando = rodando;
+  $("#btRender").disabled = rodando;
+  $("#btParar").disabled = !rodando;
+  ponto(rodando ? "busy" : (S.insp ? "on" : ""));
+}
+
+/* ---------------- eventos do servidor ---------------- */
+const fonte = new EventSource("/api/eventos");
+fonte.onmessage = ev=>{
+  const {tipo, dados} = JSON.parse(ev.data);
+  if(tipo==="inicio"){
+    S.total = dados.total; S.feitos = 0;
+    $("#prog").max = dados.total; $("#prog").value = 0;
+    travar(true);
+    logar(`${dados.total} jobs · ${dados.copias} cópias de máscara`,"fraco");
+    irPara("render");
+  } else if(tipo==="linha"){
+    const t = dados;
+    if(t.startsWith("OK ") || t.startsWith("PULADO")){
+      S.feitos++; $("#prog").value = S.feitos;
+      logar(t, t.startsWith("OK ") ? "ok" : "fraco");
+      aviso(`${S.feitos}/${S.total}`);
+    } else if(t.startsWith("FALHA") || t.startsWith("ERRO")) logar(t,"erro");
+    else if(t.startsWith("INICIO")) aviso(t);
+    else logar(t,"fraco");
+  } else if(tipo==="erro"){
+    logar(dados,"erro");
+  } else if(tipo==="fim"){
+    travar(false);
+    if(dados.copiadas) logar(dados.copiadas+" máscaras copiadas","ok");
+    logar("lote encerrado","fraco");
+    aviso("lote encerrado"); recontar();
+  }
+};
+
+/* ---------------- projetos ---------------- */
+async function abrirDialogoProjetos(){
+  const d = await api("/projetos");
+  if(!d.projetos.length){aviso("nenhum projeto salvo ainda"); return;}
+  const nome = prompt("Abrir qual projeto?\n\n"+d.projetos.join("\n"), d.projetos[0]);
+  if(!nome) return;
+  try{
+    const r = await api("/abrir",{nome});
+    S.cfg = r.cfg; S.nome = nome;
+    $("#nomeProjeto").textContent = nome;
+    espalhar();
+    if(S.cfg.blend) await inspecionar();
+  }catch(e){aviso("não abriu: "+e.message, true);}
+}
+async function salvarProjeto(){
+  const nome = S.nome || prompt("Nome do projeto:", "");
+  if(!nome) return;
+  try{
+    const d = await api("/salvar",{nome, cfg:S.cfg});
+    if(!d.ok){aviso(d.motivo, true); return;}
+    S.nome = d.nome; $("#nomeProjeto").textContent = d.nome;
+    aviso("salvo em projetos/"+d.nome+".json");
+  }catch(e){aviso("não salvou: "+e.message, true);}
+}
+function projetoNovo(){
+  if(!confirm("Descartar o projeto atual?")) return;
+  S.cfg = cfgNovo(); S.insp = null; S.nome = "";
+  $("#nomeProjeto").textContent = "projeto novo";
+  $("#seloInsp").textContent = "não inspecionado";
+  $("#seloInsp").classList.remove("bom");
+  ponto(""); espalhar();
+}
+
+/* ---------------- sinal de vida ---------------- */
+setInterval(()=>{fetch("/api/sinal",{method:"POST",
+  headers:{"Content-Type":"application/json"}, body:"{}"}).catch(()=>{});}, 10000);
+addEventListener("pagehide", ()=>{
+  navigator.sendBeacon("/api/sair", new Blob(["{}"],{type:"application/json"}));
+});
+
+espalhar();
+</script>
+</body>
+</html>

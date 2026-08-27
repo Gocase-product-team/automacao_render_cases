@@ -17,11 +17,20 @@ mais 4 máscaras — sai em torno de 22 minutos sem intervenção.
 
 ## Como usar
 
-Duplo clique em `Render de lote.bat`, ou:
+Existem duas interfaces, com o mesmo motor por baixo. Escolha uma:
 
-```
-python automacao/app.py
-```
+| | Atalho | Comando |
+|---|---|---|
+| **Web** (recomendada) | `Render de lote (web).bat` | `python automacao/servidor.py` |
+| Desktop (Tkinter) | `Render de lote.bat` | `python automacao/app.py` |
+
+A versão web sobe um servidor em `127.0.0.1` numa porta livre e abre o
+navegador. **Nada sai da máquina** — o endereço de loopback não é
+alcançável de fora, e não há conta, internet nem hospedagem envolvidas.
+Ao fechar a aba, o servidor se desliga sozinho.
+
+A versão Tkinter continua funcionando e faz exatamente o mesmo. Fica como
+plano B.
 
 Fluxo de um projeto novo:
 
@@ -45,11 +54,24 @@ Quatro peças, com o núcleo separado da interface:
 | `automacao/inspecionar.py` | dentro do Blender | lê a estrutura do `.blend` e devolve JSON |
 | `automacao/render.py` | dentro do Blender | executa uma fila de renders |
 | `automacao/nucleo.py` | Python do sistema | mapeia peças, monta a fila, valida |
-| `automacao/app.py` | Python do sistema | a interface |
+| `automacao/servidor.py` | Python do sistema | backend da interface web |
+| `automacao/web/index.html` | navegador | a interface web |
+| `automacao/app.py` | Python do sistema | a interface Tkinter |
+| `automacao/dialogo.py` | Python do sistema | diálogo nativo de escolher arquivo |
 
-A interface **não importa `bpy`** — ela conversa com o Blender por
+Nenhuma interface **importa `bpy`** — todas conversam com o Blender por
 subprocesso. Por isso você pode ter o Blender aberto ao mesmo tempo, e um
 render travado não derruba a janela.
+
+As duas interfaces são camadas finas sobre o mesmo `nucleo.py`, que é
+onde está toda a lógica. O progresso do lote chega na web por Server-Sent
+Events, lendo a saída do Blender linha por linha.
+
+O `dialogo.py` existe porque o navegador não entrega caminho de sistema
+para o backend, por segurança. Quando você clica no `…` de um campo de
+caminho, o servidor abre um diálogo nativo num processo curto e devolve o
+que você escolheu. Se isso falhar por qualquer motivo, os campos aceitam
+caminho colado à mão.
 
 **O `.blend` nunca é salvo.** Todas as trocas de material acontecem em
 memória e são descartadas quando o Blender sai.
