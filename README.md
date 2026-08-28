@@ -179,11 +179,27 @@ externa. A linha da CPU aparece junto com a da GPU de propósito: se um
 render cair para CPU sem você perceber, o gráfico mostra na hora — GPU
 parada e CPU no teto.
 
-A VRAM fica em vermelho acima de 90%. Numa placa de 6 GB isso importa:
-quando o Cycles não cabe na VRAM, o render desaba de desempenho.
+Quatro séries no mesmo gráfico:
 
-Referência medida no `studio.blend`: ociosa ~12%, durante o render pico
-de 97% com platô de 92–97%, VRAM em 1,4 de 6 GB.
+| Série | Cor | Forma |
+|---|---|---|
+| uso da GPU | magenta | área preenchida |
+| VRAM ocupada | azul | linha |
+| temperatura | vermelho | linha |
+| uso de CPU | cinza | linha |
+
+O eixo é 0–100 para todas. A temperatura é lida em **°C na mesma
+escala** — 60 °C fica na altura de 60%. Não é uma conversão, é o número
+direto, e por isso a legenda diz `escala 0–100`. O valor em °C aparece
+sempre escrito ao lado.
+
+A VRAM fica em vermelho acima de 90% e a temperatura acima de 85 °C. Numa
+placa de 6 GB a VRAM importa: quando o Cycles não cabe nela, o render
+desaba de desempenho.
+
+Referência medida no `studio.blend`: ociosa ~12% e 50 °C; durante o lote
+pico de 97% com platô de 92–97%, temperatura subindo até 59 °C e VRAM em
+até 67%.
 
 ## Botões da aba Render
 

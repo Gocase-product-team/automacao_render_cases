@@ -14,6 +14,7 @@
   --erro:#c02626; --erro-fundo:#fdeaea;
   --aviso:#8a5a00;
   --grafico:#f7f7f5; --gpu:#b03fc4; --vram:#2f7fe0; --cpu:#7a8290;
+  --temp:#d92d20;
   --r:7px; --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
 }
 @media (prefers-color-scheme:dark){
@@ -26,6 +27,7 @@
     --erro:#f07171; --erro-fundo:#2c1717;
     --aviso:#d9a441;
     --grafico:#14161a; --gpu:#d564e8; --vram:#5b9cf0; --cpu:#8a929e;
+    --temp:#ff5d52;
   }
 }
 *{box-sizing:border-box}
@@ -382,10 +384,11 @@ footer .ponto.busy{background:var(--acento);animation:pulsa 1s infinite}
         uso <b id="mUtil">—</b></span>
       <span class="chave" id="chaveVram" hidden><i class="tr" style="background:var(--vram)"></i>
         vram <b id="mVram">—</b></span>
+      <span class="chave" id="chaveTemp" hidden><i class="tr" style="background:var(--temp)"></i>
+        temp <b id="mTemp">—</b></span>
       <span class="chave"><i class="tr" style="background:var(--cpu)"></i>
         cpu <b id="mCpu">—</b></span>
-      <span id="mTemp"></span>
-      <span class="mesc">60 s</span>
+      <span class="mesc">60 s &nbsp;·&nbsp; escala 0–100</span>
     </div>
   </div>
 
@@ -819,7 +822,8 @@ function travar(rodando){
 
 /* ---------------- monitor de dispositivo ---------------- */
 const AMOSTRAS = 60;                       // 60 pontos a 1 s = 60 s
-const MON = {principal:[], vram:[], cpu:[], fonte:null, temVram:false};
+const MON = {principal:[], vram:[], cpu:[], temp:[], fonte:null,
+             temVram:false, temTemp:false};
 
 function corVar(nome){
   return getComputedStyle(document.body).getPropertyValue(nome).trim();
@@ -873,9 +877,12 @@ function desenharMonitor(){
   for(let i=1;i<6;i++){const y=Math.round(A*i/6)+.5; ctx.moveTo(0,y); ctx.lineTo(L,y);}
   ctx.stroke();
 
+  // a area preenchida vai primeiro para nao encobrir as linhas.
+  // temperatura em °C na mesma escala 0-100: 60 °C fica em 60% de altura.
+  serie(ctx, L, A, MON.principal, corVar('--gpu'), true);
   if(MON.temVram) serie(ctx, L, A, MON.vram, corVar('--vram'), false);
   serie(ctx, L, A, MON.cpu, corVar('--cpu'), false);
-  serie(ctx, L, A, MON.principal, corVar('--gpu'), true);
+  if(MON.temTemp) serie(ctx, L, A, MON.temp, corVar('--temp'), false);
 }
 function aplicarMonitor(d){
   MON.fonte = d.fonte;
@@ -901,10 +908,17 @@ function aplicarMonitor(d){
     $("#mVram").style.color = pct > 90 ? "var(--erro)" : "";
   } else empurrar(MON.vram, null);
 
+  MON.temTemp = ehGpu && typeof d.temp === "number";
+  $("#chaveTemp").hidden = !MON.temTemp;
+  if(MON.temTemp){
+    empurrar(MON.temp, d.temp);
+    $("#mTemp").textContent = d.temp + " °C";
+    $("#mTemp").style.color = d.temp >= 85 ? "var(--temp)" : "";
+  } else empurrar(MON.temp, null);
+
   $("#mUtil").textContent = principal === null || principal === undefined
     ? "—" : principal + "%";
   $("#mCpu").textContent = d.cpu === null || d.cpu === undefined ? "—" : d.cpu + "%";
-  $("#mTemp").textContent = d.temp ? d.temp + " °C" : "";
   desenharMonitor();
 }
 addEventListener("resize", ()=>desenharMonitor());
